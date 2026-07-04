@@ -1,26 +1,51 @@
-# data/market_data.py
-
 import requests
 import pandas as pd
 
 
 class MarketData:
+    """
+    Data provider for market prices (Stooq source).
+    """
 
     BASE = "https://stooq.com/q/d/l/"
 
+    def load(self, ticker: str) -> pd.DataFrame:
+        """
+        Load historical daily market data for a ticker.
+        """
 
-    def load(self, ticker):
+        try:
+            symbol = ticker.lower() + ".us"
+            url = f"{self.BASE}?s={symbol}&i=d"
 
-        symbol = ticker.lower() + ".us"
+            df = pd.read_csv(url)
 
-        url = f"{self.BASE}?s={symbol}&i=d"
+            # standardize column names
+            df.columns = [c.lower() for c in df.columns]
 
-        df = pd.read_csv(url)
+            # convert date
+            df["date"] = pd.to_datetime(df["date"])
 
-        df["Date"] = pd.to_datetime(df["Date"])
+            # sort by time
+            df = df.sort_values("date").reset_index(drop=True)
 
-        df = df.sort_values("Date")
+            return df
 
-        df.reset_index(drop=True, inplace=True)
+        except Exception as e:
+            # чтобы backtest не падал полностью
+            print(f"[MarketData ERROR] {ticker}: {e}")
+            return pd.DataFrame()
 
+
+def load_market_data(ticker: str, timestamp=None) -> pd.DataFrame:
+    """
+    SYSTEM INTERFACE (used by orchestrator)
+    """
+
+    md = MarketData()
+    df = md.load(ticker)
+
+    if df.empty:
         return df
+
+    return df
